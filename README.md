@@ -1,3 +1,5 @@
+This branch is to construct de Bruijn graphs of protein sequencing. Changes: no revcomp, aminoacid alphabet.
+
 dbg
 ===
 

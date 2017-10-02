@@ -27,13 +27,14 @@ def build(fn,k=31,limit=1,file_format='fastq'):
         reads = SeqIO.parse(f,file_format)
         for read in reads:
             seq_s = str(read.seq)
-            seq_l = seq_s.split('N')
+            #seq_l = seq_s.split('N') # don't split at N's for proteins
+            seq_l = [seq_s]
             for seq in seq_l:
                 for km in kmers(seq,k):
                     d[km] +=1
-                seq = twin(seq)
-                for km in kmers(seq,k):
-                    d[km] += 1
+                #seq = twin(seq) # don't consider revcomp's for proteins
+                #for km in kmers(seq,k):
+                #    d[km] += 1
 
     d1 = [x for x in d if d[x] <= limit]
     for x in d1:
@@ -47,12 +48,12 @@ def contig_to_string(c):
 def get_contig(d,km):
     c_fw = get_contig_forward(d,km)
     
-    c_bw = get_contig_forward(d,twin(km))
+    c_bw = get_contig_backward(d,km)
 
     if km in fw(c_fw[-1]):
         c = c_fw
     else:
-        c = [twin(x) for x in c_bw[-1:0:-1]] + c_fw
+        c = c_bw + c_fw
     return contig_to_string(c),c
         
 
@@ -64,10 +65,11 @@ def get_contig_forward(d,km):
             break
         
         cand = [x for x in fw(c_fw[-1]) if x in d][0]
-        if cand == km or cand == twin(km):
+        # some of those cases aren't needed in proteins
+        if cand == km: #or cand == twin(km):
             break # break out of cycles or mobius contigs
-        if cand == twin(c_fw[-1]):
-            break # break out of hairpins
+        #if cand == twin(c_fw[-1]):
+        #    break # break out of hairpins
         
         if sum(x in d for x in bw(cand)) != 1:
             break
@@ -75,6 +77,29 @@ def get_contig_forward(d,km):
         c_fw.append(cand)
 
     return c_fw
+
+# added because we can't use the revcomp trick here
+def get_contig_backward(d,km):
+    c_fw = [km]
+    
+    while True:
+        if sum(x in d for x in bw(c_fw[-1])) != 1:
+            break
+        
+        cand = [x for x in bw(c_fw[-1]) if x in d][0]
+        # some of those cases aren't needed in proteins
+        if cand == km: #or cand == twin(km):
+            break # break out of cycles or mobius contigs
+        #if cand == twin(c_fw[-1]):
+        #    break # break out of hairpins
+        
+        if sum(x in d for x in fw(cand)) != 1:
+            break
+
+        c_fw.append(cand)
+
+    return c_fw[-1:0:-1]
+
 
 def all_contigs(d,k):
     done = set()
@@ -84,7 +109,7 @@ def all_contigs(d,k):
             s,c = get_contig(d,x)
             for y in c:
                 done.add(y)
-                done.add(twin(y))
+                #done.add(twin(y))
             r.append(s)
     
     G = {}
@@ -93,35 +118,35 @@ def all_contigs(d,k):
     for i,x in enumerate(r):
         G[i] = ([],[])
         heads[x[:k]] = (i,'+')
-        tails[twin(x[-k:])] = (i,'-')
+        #tails[twin(x[-k:])] = (i,'-') # no -+ or +- or -- links in proteins
     
     for i in G:
         x = r[i]
         for y in fw(x[-k:]):
             if y in heads:
                 G[i][0].append(heads[y])
-            if y in tails:
-                G[i][0].append(tails[y])
+            #if y in tails:
+            #    G[i][0].append(tails[y])
         for z in fw(twin(x[:k])):
             if z in heads:
                 G[i][1].append(heads[z])
-            if z in tails:
-                G[i][1].append(tails[z])
+            #if z in tails:
+            #    G[i][1].append(tails[z])
 
     return G,r
 
     
 
 def print_GFA(G,cs,k):
-    print("H  VN:Z:1.0")
+    print("H\tVN:Z:1.0")
     for i,x in enumerate(cs):
         print("S\t%d\t%s\t*"%(i,x))
         
     for i in G:
         for j,o in G[i][0]:
             print("L\t%d\t+\t%d\t%s\t%dM"%(i,j,o,k-1))
-        for j,o in G[i][1]:
-            print("L\t%d\t-\t%d\t%s\t%dM"%(i,j,o,k-1))
+        #for j,o in G[i][1]:
+        #    print("L\t%d\t-\t%d\t%s\t%dM"%(i,j,o,k-1))
     
 
 
