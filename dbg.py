@@ -1,6 +1,8 @@
 import collections, sys
-from Bio import Seq, SeqIO, SeqRecord
+from Bio import Seq, SeqIO, SeqRecord, Data
 
+#alphabet = 'ACTG'
+alphabet = Data.IUPACData.protein_letters
 
 def twin(km):
     return Seq.reverse_complement(km)
@@ -10,19 +12,19 @@ def kmers(seq,k):
         yield seq[i:i+k]
 
 def fw(km):
-    for x in 'ACGT':
+    for x in alphabet:
         yield km[1:]+x
 
 def bw(km):
-    for x in 'ACGT':
+    for x in alphabet:
         yield x + km[:-1]
 
 
-def build(fn,k=31,limit=1):
+def build(fn,k=31,limit=1,file_format='fastq'):
     d = collections.defaultdict(int)
 
     for f in fn:
-        reads = SeqIO.parse(f,'fastq')
+        reads = SeqIO.parse(f,file_format)
         for read in reads:
             seq_s = str(read.seq)
             seq_l = seq_s.split('N')
@@ -125,7 +127,8 @@ def print_GFA(G,cs,k):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2: exit("args: <k> <reads_1.fq> ...")
+    frmt = "fastq" if ("fastq" in sys.argv[2] or "fq" in sys.argv[2]) else "fasta"
     k = int(sys.argv[1])
-    d = build(sys.argv[2:],k,1)
+    d = build(sys.argv[2:],k,1,frmt)
     G,cs = all_contigs(d,k)
     print_GFA(G,cs,k)
